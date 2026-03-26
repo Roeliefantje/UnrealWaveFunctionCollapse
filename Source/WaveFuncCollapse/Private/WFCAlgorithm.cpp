@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "WFCAlgorithm.h"
 #include <algorithm>
+#include <cmath>
+#include <bitset>
 
 WFCAlgorithm::WFCAlgorithm(const std::vector<FTile> &PossibleTiles, int width, int height) : Width(width), Height(height), Possible_tileset(PossibleTiles)
 {
@@ -10,11 +12,19 @@ WFCAlgorithm::WFCAlgorithm(const std::vector<FTile> &PossibleTiles, int width, i
 	//Initialize all the grid values with the same entropy, meaning they all can be all possible states.
 	//TODO!: It would be fun if we could set an initial state through some functions instead of doing it here.
 	//TODO!: So we would init all this, and then in the editor allow certain tiles to be set to a type.
+	check(!(PossibleTiles.size() > 32 || PossibleTiles.size() == 0))
 	
 	FGridTile BaseTile;
-	BaseTile.collapsed = false;
-	//TODO!: Could be more memory efficient to only store the Tile Ids instead of the full object.
-	BaseTile.possible_options = Possible_tileset;
+	BaseTile.Collapsed = false;
+	//Set the first n bits of the bitmask to 1, allowing all the tiles.
+	if (PossibleTiles.size() == 32)
+	{
+		BaseTile.PossibleOptions = ~0u;
+	} else
+	{
+		BaseTile.PossibleOptions = (1u << PossibleTiles.size()) - 1;
+	}
+	
 	
 	//Use std::fill instead of a loop as memcpy is probably a bit more efficient.
 	//Fill will deepcopy the struct, so the vectors are still seperate, we could look into using a pointer to a vec instead,
@@ -44,33 +54,66 @@ WFCAlgorithm::WFCAlgorithm(const std::vector<FTile> &PossibleTiles, int width, i
 	}
 }
 
+FString UInt32ToBinary(uint32 Value)
+{
+	auto BitSet = std::bitset<32>(Value);
+	// BitSet.to_string();
+	
+	return FString(BitSet.to_string().c_str());
+	
+	FString Result;
+	for (int i = 31; i >= 0; --i)
+	{
+		Result += (Value & (1u << i)) ? TEXT("1") : TEXT("0");
+
+		// Optional: spacing every 4 bits for readability
+		if (i % 4 == 0) Result += TEXT(" ");
+	}
+	return Result;
+}
+
+void WFCAlgorithm::LogNeighbourBitmasks(FTileNeighbours NBInfo)
+{
+	UE_LOG(LogTemp, Log, TEXT("Value (bin): %s"), *UInt32ToBinary(NBInfo.North));
+	UE_LOG(LogTemp, Log, TEXT("Value (bin): %s"), *UInt32ToBinary(NBInfo.East));
+	UE_LOG(LogTemp, Log, TEXT("Value (bin): %s"), *UInt32ToBinary(NBInfo.South));
+	UE_LOG(LogTemp, Log, TEXT("Value (bin): %s"), *UInt32ToBinary(NBInfo.West));
+}
+
 //This function constructs a map of the ruleset to ensure
 void WFCAlgorithm::constructRuleset()
 {
 	for (const auto &possibleTile : Possible_tileset)
 	{
+		UE_LOG(LogTemp, Log, TEXT("Rule set for tile"));
 		auto nbRuleSet = FTileNeighbours{};
-		for (const auto &nbTile : Possible_tileset)
+		// LogNeighbourBitmasks(nbRuleSet);
+		for (size_t i = 0; i < Possible_tileset.size(); i++)
 		{
+			const auto &nbTile = Possible_tileset[i];
 			if (possibleNorth(possibleTile, nbTile))
 			{
-				nbRuleSet.North.push_back(nbTile);
+				//Set the bitmask to 1 for that neighbour.
+				nbRuleSet.North |= (1u << i);
 			}
 			if (possibleEast(possibleTile, nbTile))
 			{
-				nbRuleSet.East.push_back(nbTile);
+				// nbRuleSet.East.push_back(nbTile);
+				nbRuleSet.East |= (1u << i);
 			}
 			if (possibleWest(possibleTile, nbTile))
 			{
-				nbRuleSet.South.push_back(nbTile);
+				// nbRuleSet.South.push_back(nbTile);
+				nbRuleSet.West |= (1u << i);
 			}
 			if (possibleSouth(possibleTile, nbTile))
 			{
-				nbRuleSet.West.push_back(nbTile);
+				// nbRuleSet.West.push_back(nbTile);
+				nbRuleSet.South |= (1u << i);
 			}
 		}
-		
-		TileRuleset[possibleTile] = nbRuleSet;
+		LogNeighbourBitmasks(nbRuleSet);
+		TileRuleset.push_back(nbRuleSet);
 	}
 }
 
@@ -133,6 +176,206 @@ inline bool WFCAlgorithm::possibleWest(const FTile& Curr, const FTile& Nb)
 	}
 	
 	return true;
+}
+
+inline size_t RandomIndex(size_t vecSize) 
+{
+	return 0;
+}
+
+WFCAlgorithm::FBucketItem WFCAlgorithm::GetLowestEntropyGridTile()
+{
+	//Iterate over the buckets until an non-zero vector is found.
+	//Fetch a random cell from it, check if the entropy is valid.
+	//If entropy = 0, we are cooked!
+	for (size_t i = 0; i < EntropyBuckets.size(); i++)
+	{
+		auto& Bucket = EntropyBuckets[i];
+		if (Bucket.size() > 0)
+		{
+			while (!Bucket.empty())
+			{
+				auto index = RandomIndex(Bucket.size());
+				auto BucketItem = Bucket[index];
+				auto& GridTile = Grid[BucketItem.YIndex * Width + BucketItem.XIndex];
+				//Check the tiles entropy and check to see if its still a valid bucket entry.
+				int OptionsCount = __popcnt(GridTile.PossibleOptions);
+				
+				
+				//Overwrite the current index value and pop the last entry in the vec
+				//We do not care about the order and this allows us to remove an item in O(1)
+				//We do this before checking if its valid as returning it here means it will also no longer be valid.
+				Bucket[index] = std::move(Bucket.back());
+				Bucket.pop_back();
+				
+				if (!GridTile.Collapsed && OptionsCount == i)
+				{
+					//Found valid lowest-entropy item
+					return BucketItem;
+				}
+				
+			}
+		}
+	}
+	
+	return FBucketItem{-1, -1};
+}
+
+inline int GetNthOneBitIdx(const uint32_t Bitmask, int N)
+{
+	int count = 0;
+	for (int i = 0; i < 32; i++)
+	{
+		if (Bitmask & (1u << i))
+		{
+			if (count == N)
+			{
+				return i;
+			}
+			count++;
+		}
+	}
+	
+	return -1;
+}
+
+void WFCAlgorithm::UpdateNeighbour(int x, int y, uint32_t bitMask)
+{
+	if (x < 0 || x >= Width || y < 0 || y >= Height)
+	{
+		return;
+	}
+	
+	FGridTile& Tile = Grid[y * Width + x];
+	int PriorCount = __popcnt(Tile.PossibleOptions);
+	Tile.PossibleOptions &= bitMask;
+	int OptionsCount = __popcnt(Tile.PossibleOptions);
+	
+	if (PriorCount == OptionsCount)
+	{
+		//No changes, do not need to update neighbours.
+		return;
+	}
+	
+	//Add itself to the buckets
+	EntropyBuckets[OptionsCount].emplace_back(x, y);
+	
+	if (OptionsCount == 0)
+	{
+		//Oh boy
+		//TODO!: Handle this case...
+		return;
+	}
+	
+	if (OptionsCount == 1)
+	{
+		Tile.Collapsed = true;
+	}
+	
+	//Create a Neighbour bitmask that combines all the neighbours for all possible options in all directions
+	int count = 0;
+	FTileNeighbours CombinedNeighbours = {};
+	for (int i = 0; i < Possible_tileset.size(); i++)
+	{
+		if (Tile.PossibleOptions & (1u << i))
+		{
+			CombinedNeighbours.AddPossibleNeighbours(TileRuleset[i]);
+			
+			if (++count == OptionsCount)
+			{
+				break;
+			}
+		}
+	}
+	
+	UpdateNeighbour(x, y - 1, CombinedNeighbours.North);
+	UpdateNeighbour(x, y + 1, CombinedNeighbours.South);
+	UpdateNeighbour(x - 1, y, CombinedNeighbours.West);
+	UpdateNeighbour(x + 1, y, CombinedNeighbours.East);
+	
+}
+
+bool WFCAlgorithm::Step()
+{
+	//Get one of the lowest entropy grid tiles.
+	FBucketItem GridCoords = GetLowestEntropyGridTile();
+	if (GridCoords.XIndex == -1)
+	{
+		return true;
+	}
+	//Collapse the cell to a random possible cell
+	FGridTile& Tile = Grid[GridCoords.YIndex * Width + GridCoords.XIndex];
+	int OptionsCount = __popcnt(Tile.PossibleOptions);
+	
+	if (OptionsCount == 0)
+	{
+		//We have encountered an illegal state
+		//do something
+		//TODO!: Handle this.
+		return true;
+	}
+	
+	Tile.Collapsed = true;
+	int VariantIndex = GetNthOneBitIdx(Tile.PossibleOptions, FMath::RandRange(0, OptionsCount - 1));
+	Tile.PossibleOptions = (1u << VariantIndex);
+	
+	//Update neighbours, and their neighbours and so on.
+	UpdateNeighbour(GridCoords.XIndex, GridCoords.YIndex - 1, TileRuleset[VariantIndex].North);
+	UpdateNeighbour(GridCoords.XIndex, GridCoords.YIndex + 1, TileRuleset[VariantIndex].South);
+	UpdateNeighbour(GridCoords.XIndex - 1, GridCoords.YIndex, TileRuleset[VariantIndex].West);
+	UpdateNeighbour(GridCoords.XIndex + 1, GridCoords.YIndex, TileRuleset[VariantIndex].East);
+	
+	return false;
+}
+
+std::vector<WFCAlgorithm::EPixelValues> WFCAlgorithm::Solve()
+{
+	while (!Step())
+	{
+		//TODO!: Keep track of branches whenever we collapse something
+		// break;
+	}
+	
+	int TileDim = std::sqrt(TileSize);
+	check(TileDim * TileDim == TileSize);
+	int ResultWidth = Width * TileDim;
+	int ResultHeight = Height * TileDim;
+	auto result = std::vector<EPixelValues>(ResultWidth * ResultHeight, EPixelValues::Invalid);
+	// std::fill_n(result.begin(), ResultWidth * ResultHeight, EPixelValues::Invalid);
+	
+	
+	for (int y = 0; y < Height; y++)
+	{
+		for (int x = 0; x < Width; x++)
+		{
+			FGridTile& GridTile = Grid[y * Width + x];
+			if (GridTile.Collapsed)
+			{
+				// UE_LOG(LogTemp, Log, TEXT("COLLAPSED GRID TILE"));
+				int TileIndex = GetNthOneBitIdx(GridTile.PossibleOptions, 0);
+				if (TileIndex >= Possible_tileset.size() || TileIndex == -1)
+				{
+					UE_LOG(LogTemp, Error, TEXT("TileIndex surprassed tileset size!"));
+					UE_LOG(LogTemp, Error, TEXT("%d"), TileIndex);
+					continue;
+				}
+				const FTile& ChosenTile = Possible_tileset[TileIndex];
+				
+				//Copy the pixel values into the resulting array.
+				for (int TileY = 0; TileY < TileDim; TileY++)
+				{
+					for (int TileX = 0; TileX < TileDim; TileX++)
+					{
+						int ResultIndex = ((y * TileDim + TileY) * ResultWidth) + (x * TileDim + TileX);
+						int InTileIndex   = TileY * TileDim + TileX;
+						result[ResultIndex] = ChosenTile.pixels[InTileIndex];
+					}
+				}
+			} 
+		}
+	}
+	
+	return result;
 }
 
 
