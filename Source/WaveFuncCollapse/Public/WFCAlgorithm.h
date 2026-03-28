@@ -11,24 +11,28 @@
  * 
  */
 
-
+//While this is an Enum to be used by the WFC only, in order to expose it to blueprints, it needs to be outside of the class.
+UENUM(BlueprintType)
+enum class EPixelValues: uint8
+{
+	Grass   UMETA(DisplayName = "Grass"),
+	Road    UMETA(DisplayName = "Road"),
+	House   UMETA(DisplayName = "House"),
+	Invalid UMETA(DisplayName = "Invalid")
+};
 
 class WAVEFUNCCOLLAPSE_API WFCAlgorithm
 {
 private:
 	
 public:
-	constexpr static int TileSize = 9;
-	enum EPixelValues
-	{
-		Grass, Road, House, Invalid
-	};
-	
+
 	struct FTile
 	{
 		//A possible collapsed state of a tile (consisting of pixels) in the grid.
 		//This tile will have possible rules etc
-		EPixelValues pixels[TileSize];
+		std::vector<EPixelValues> pixels;
+		// EPixelValues pixels[TileSize];
 	};
 private:
 	struct FGridTile
@@ -65,6 +69,7 @@ private:
 	};
 	
 private:
+	int TileDimensions;
 	int Width;
 	int Height;
 	std::unique_ptr<FGridTile[]> Grid;
@@ -74,17 +79,17 @@ private:
 	
 	void constructRuleset();
 	
-	static inline bool possibleNorth(const FTile& Curr, const FTile& Nb);
-	static inline bool possibleEast(const FTile& Curr, const FTile& Nb);
-	static inline bool possibleSouth(const FTile& Curr, const FTile& Nb);
-	static inline bool possibleWest(const FTile& Curr, const FTile& Nb);
+	inline bool possibleNorth(const FTile& Curr, const FTile& Nb) const;
+	inline bool possibleEast(const FTile& Curr, const FTile& Nb) const;
+	inline bool possibleSouth(const FTile& Curr, const FTile& Nb) const;
+	inline bool possibleWest(const FTile& Curr, const FTile& Nb) const;
 	
 	FBucketItem GetLowestEntropyGridTile();
 	void UpdateNeighbour(int x, int y, uint32_t bitMask);
 	
-	void LogNeighbourBitmasks(FTileNeighbours NBInfo);
+	static void LogNeighbourBitmasks(FTileNeighbours NBInfo);
 public:
-	WFCAlgorithm(const std::vector<FTile> &possible_tiles, int width, int height);
+	WFCAlgorithm(const std::vector<FTile> &possible_tiles, int width, int height, int TileDimensions);
 	std::vector<EPixelValues> Solve();
 	bool Step();
 	~WFCAlgorithm();
