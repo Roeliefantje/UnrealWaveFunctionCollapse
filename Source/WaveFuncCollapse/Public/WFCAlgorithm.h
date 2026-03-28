@@ -31,8 +31,11 @@ public:
 	{
 		//A possible collapsed state of a tile (consisting of pixels) in the grid.
 		//This tile will have possible rules etc
-		std::vector<EPixelValues> pixels;
+		std::vector<EPixelValues> Pixels;
+		int Dim;
 		// EPixelValues pixels[TileSize];
+		
+		FTile GetCWRotatedTile(int Rotations) const;
 	};
 private:
 	struct FGridTile

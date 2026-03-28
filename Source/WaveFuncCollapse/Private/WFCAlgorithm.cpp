@@ -4,6 +4,31 @@
 #include <cmath>
 #include <bitset>
 
+WFCAlgorithm::FTile WFCAlgorithm::FTile::GetCWRotatedTile(int Rotations) const
+{
+	std::vector<EPixelValues> rotated = Pixels;
+	
+	for (int i = 0; i < Rotations; i++)
+	{
+		std::vector<EPixelValues> start= rotated;
+		
+		for (int y = 0; y < Dim; y++)
+		{
+			for (int x = 0; x < Dim; x++)
+			{
+				int OldIndex = y * Dim + x;
+				//transpose and flip the order
+				int NewIndex = x * Dim + (Dim - 1 - y);
+				rotated[NewIndex] = start[OldIndex];
+			}
+		}
+	}
+	
+	
+	
+	return FTile{rotated, Dim};
+}
+
 WFCAlgorithm::WFCAlgorithm(const std::vector<FTile> &PossibleTiles, int width, int height, int TileDimensions) : Width(width), Height(height), Possible_tileset(PossibleTiles), TileDimensions(TileDimensions)
 {
 	Grid = std::make_unique<FGridTile[]>(width * height);
@@ -112,7 +137,7 @@ void WFCAlgorithm::constructRuleset()
 				nbRuleSet.South |= (1u << i);
 			}
 		}
-		LogNeighbourBitmasks(nbRuleSet);
+		//LogNeighbourBitmasks(nbRuleSet);
 		TileRuleset.push_back(nbRuleSet);
 	}
 }
@@ -124,7 +149,7 @@ inline bool WFCAlgorithm::possibleNorth(const FTile& Curr, const FTile& Nb) cons
 	int TileSize = TileDimensions * TileDimensions;
 	for (int i = 0; i < TileDimensions; i++)
 	{
-		if (Curr.pixels[i] != Nb.pixels[TileSize - TileDimensions + i])
+		if (Curr.Pixels[i] != Nb.Pixels[TileSize - TileDimensions + i])
 		{
 			return false;
 		}
@@ -138,7 +163,7 @@ inline bool WFCAlgorithm::possibleEast(const FTile& Curr, const FTile& Nb) const
 	//We need to compare the right side values with the left side values.
 	for (int i = 0; i < TileDimensions; i++)
 	{
-		if (Curr.pixels[TileDimensions - 1 + TileDimensions * i] != Nb.pixels[TileDimensions * i])
+		if (Curr.Pixels[TileDimensions - 1 + TileDimensions * i] != Nb.Pixels[TileDimensions * i])
 		{
 			return false;
 		}
@@ -153,7 +178,7 @@ inline bool WFCAlgorithm::possibleSouth(const FTile& Curr, const FTile& Nb) cons
 	int TileSize = TileDimensions * TileDimensions;
 	for (int i = 0; i < TileDimensions; i++)
 	{
-		if (Curr.pixels[TileSize - TileDimensions + i] != Nb.pixels[i])
+		if (Curr.Pixels[TileSize - TileDimensions + i] != Nb.Pixels[i])
 		{
 			return false;
 		}
@@ -167,7 +192,7 @@ inline bool WFCAlgorithm::possibleWest(const FTile& Curr, const FTile& Nb) const
 	//West is East but flipped
 	for (int i = 0; i < TileDimensions; i++)
 	{
-		if (Curr.pixels[TileDimensions * i] != Nb.pixels[TileDimensions - 1 + TileDimensions * i])
+		if (Curr.Pixels[TileDimensions * i] != Nb.Pixels[TileDimensions - 1 + TileDimensions * i])
 		{
 			return false;
 		}
@@ -364,7 +389,7 @@ std::vector<EPixelValues> WFCAlgorithm::Solve()
 					{
 						int ResultIndex = ((y * TileDimensions + TileY) * ResultWidth) + (x * TileDimensions + TileX);
 						int InTileIndex   = TileY * TileDimensions + TileX;
-						result[ResultIndex] = ChosenTile.pixels[InTileIndex];
+						result[ResultIndex] = ChosenTile.Pixels[InTileIndex];
 					}
 				}
 			} 

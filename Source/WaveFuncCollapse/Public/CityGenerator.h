@@ -36,7 +36,7 @@ protected:
 	
 	std::vector<WFCAlgorithm::FTile> FTilesFromTileSetData() const;
 	
-	void SpawnMeshes(std::vector<EPixelValues> Pixels);
+	void SpawnMeshes(const std::vector<EPixelValues>& Pixels);
 
 public:	
 	// Called every frame

@@ -22,79 +22,86 @@ void ACityGenerator::BeginPlay()
 	auto tiles = FTilesFromTileSetData();
 	
 
-	WFCAlgorithm::FTile Grass = {
-		{
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-		}};
+	// WFCAlgorithm::FTile Grass = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 	}};
+	//
+	// WFCAlgorithm::FTile StraightRoadGrass = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 	}};
+	// WFCAlgorithm::FTile StraightRoadRotatedGrass = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Road,
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 	}};
+	//
+	// WFCAlgorithm::FTile PlusGrass = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Road,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 	}};
+	//
+	// WFCAlgorithm::FTile Turn = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Road,
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 	}};
+	//
+	// WFCAlgorithm::FTile Turn2 = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 	}};
+	//
+	// WFCAlgorithm::FTile Turn3 = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 	}};
+	//
+	// WFCAlgorithm::FTile Turn4 = {
+	// 	{
+	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Road,
+	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
+	// 	}};
 	
-	WFCAlgorithm::FTile StraightRoadGrass = {
-		{
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-		}};
-	WFCAlgorithm::FTile StraightRoadRotatedGrass = {
-		{
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-			EPixelValues::Road, EPixelValues::Road, EPixelValues::Road,
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-		}};
-	
-	WFCAlgorithm::FTile PlusGrass = {
-		{
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Road, EPixelValues::Road, EPixelValues::Road,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-		}};
-	
-	WFCAlgorithm::FTile Turn = {
-		{
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Road,
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-		}};
-	
-	WFCAlgorithm::FTile Turn2 = {
-		{
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Road, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-		}};
-	
-	WFCAlgorithm::FTile Turn3 = {
-		{
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-			EPixelValues::Road, EPixelValues::Road, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-		}};
-	
-	WFCAlgorithm::FTile Turn4 = {
-		{
-			EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Road,
-			EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-		}};
-	
-	std::vector<WFCAlgorithm::FTile> TileSet = {Grass, StraightRoadGrass, StraightRoadRotatedGrass, PlusGrass, Turn, Turn2, Turn3, Turn4};
+	// std::vector<WFCAlgorithm::FTile> TileSet = {Grass, StraightRoadGrass, StraightRoadRotatedGrass, PlusGrass, Turn, Turn2, Turn3, Turn4};
 	// std::vector<WFCAlgorithm::FTile> TileSet = {Grass, StraightRoad, Turn};
 	int TileDim = TilesetData->TileDimensions;
 	
+	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridHeight);
+	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridWidth);
 	int Height = GridHeight / TileDim;
 	int Width = GridWidth / TileDim;
+	UE_LOG(LogTemp, Log, TEXT("Height: %d"), Height);
+	UE_LOG(LogTemp, Log, TEXT("Width: %d"), Width);
 	
 	//Make sure the GridHeight and GridWith also get adjusted back so the resulting spawned grid is not wrong.
 	GridHeight = Height * TileDim;
 	GridWidth = Width * TileDim;
 	
-	auto Wfc = WFCAlgorithm(TileSet, Width, Height, TileDim);
+	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridHeight);
+	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridWidth);
+	
+	auto Wfc = WFCAlgorithm(tiles, Width, Height, TileDim);
 	UE_LOG(LogTemp, Log, TEXT("Solving WFC algo"));
 	auto Pixels = Wfc.Solve();
 	
-	int ResultHeight = Height * TileDim;
-	int ResultWidth = Width * TileDim;
-	
+	// int ResultHeight = Height * TileDim;
+	// int ResultWidth = Width * TileDim;
+	//
 	// for (int32 y = 0; y < ResultHeight; y++)
 	// {
 	// 	FString RowString;
@@ -109,6 +116,19 @@ void ACityGenerator::BeginPlay()
 	// }
 	
 	SpawnMeshes(Pixels);
+}
+
+void AddIfNotDuplicate(std::vector<WFCAlgorithm::FTile>& Vec, WFCAlgorithm::FTile Obj)
+{
+	for (const auto& ExistingTile : Vec)
+	{
+		if (ExistingTile.Pixels == Obj.Pixels)
+		{
+			return;
+		}
+	}
+	
+	Vec.push_back(Obj);
 }
 
 std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
@@ -150,24 +170,30 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 			for (int x = 0; x < TilesetData->TileDimensions; x++)
 			{
 				const size_t PixelCoord = (y * MipMap.SizeX + x) * 4;
-				const FColor PixelColor = FColor(RawImageData[PixelCoord],
+				const FColor PixelColor = FColor(RawImageData[PixelCoord + 2],
 										RawImageData[PixelCoord + 1],
-										RawImageData[PixelCoord + 2],
+										RawImageData[PixelCoord],
 										RawImageData[PixelCoord + 3]);
 				//TODO!: We should have a func that gets the closest color just in case.
 				if (TilesetData->ColorToCellType.Contains(PixelColor))
 				{
 					TilePixels.push_back(TilesetData->ColorToCellType[PixelColor]);
-					UE_LOG(LogTemp, Log, TEXT("%d"), static_cast<int32>(TilesetData->ColorToCellType[PixelColor]));
+					// UE_LOG(LogTemp, Log, TEXT("%d"), static_cast<int32>(TilesetData->ColorToCellType[PixelColor]));
 				} else {
 					UE_LOG(LogTemp, Log, TEXT("Texture not found, Color: %s"), *PixelColor.ToString());
+					TilePixels.push_back(EPixelValues::Invalid);
 				}
 			}
 		}
 		MipMap.BulkData.Unlock();
 		
-		// WFCAlgorithm::FTile FTile =  WFCAlgorithm::FTile{TilePixels};
-		FinalTiles.emplace_back(TilePixels);
+		//Add it and its rotations to the set
+		WFCAlgorithm::FTile Tile =  WFCAlgorithm::FTile{TilePixels, TilesetData->TileDimensions};
+		AddIfNotDuplicate(FinalTiles, Tile);
+		AddIfNotDuplicate(FinalTiles, Tile.GetCWRotatedTile(1));
+		AddIfNotDuplicate(FinalTiles, Tile.GetCWRotatedTile(2));
+		AddIfNotDuplicate(FinalTiles, Tile.GetCWRotatedTile(3));
+		// FinalTiles.emplace_back(TilePixels, TilesetData->TileDimensions);
 		
 	}
 	
@@ -176,7 +202,7 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 }
 
 
-void ACityGenerator::SpawnMeshes(std::vector<EPixelValues> Pixels)
+void ACityGenerator::SpawnMeshes(const std::vector<EPixelValues>& Pixels)
 {
 	FVector Origin = GetActorLocation();
 	
