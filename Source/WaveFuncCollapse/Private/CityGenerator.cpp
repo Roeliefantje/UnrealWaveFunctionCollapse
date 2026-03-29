@@ -4,6 +4,8 @@
 #include "CityGenerator.h"
 
 #include <cmath>
+
+#include "ParticleEmitterInstances.h"
 #include "WFCAlgorithm.h"
 #include "Engine/StaticMeshActor.h"
 
@@ -19,83 +21,17 @@ ACityGenerator::ACityGenerator()
 void ACityGenerator::BeginPlay()
 {
 	Super::BeginPlay();
-	auto tiles = FTilesFromTileSetData();
+	const auto Tiles = FTilesFromTileSetData();
+	const int TileDim = TilesetData->TileDimensions;
 	
-
-	// WFCAlgorithm::FTile Grass = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 	}};
-	//
-	// WFCAlgorithm::FTile StraightRoadGrass = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 	}};
-	// WFCAlgorithm::FTile StraightRoadRotatedGrass = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Road,
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 	}};
-	//
-	// WFCAlgorithm::FTile PlusGrass = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Road,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 	}};
-	//
-	// WFCAlgorithm::FTile Turn = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Road,
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 	}};
-	//
-	// WFCAlgorithm::FTile Turn2 = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 	}};
-	//
-	// WFCAlgorithm::FTile Turn3 = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 		EPixelValues::Road, EPixelValues::Road, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 	}};
-	//
-	// WFCAlgorithm::FTile Turn4 = {
-	// 	{
-	// 		EPixelValues::Grass, EPixelValues::Grass, EPixelValues::Grass,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Road,
-	// 		EPixelValues::Grass, EPixelValues::Road, EPixelValues::Grass,
-	// 	}};
-	
-	// std::vector<WFCAlgorithm::FTile> TileSet = {Grass, StraightRoadGrass, StraightRoadRotatedGrass, PlusGrass, Turn, Turn2, Turn3, Turn4};
-	// std::vector<WFCAlgorithm::FTile> TileSet = {Grass, StraightRoad, Turn};
-	int TileDim = TilesetData->TileDimensions;
-	
-	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridHeight);
-	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridWidth);
-	int Height = GridHeight / TileDim;
-	int Width = GridWidth / TileDim;
-	UE_LOG(LogTemp, Log, TEXT("Height: %d"), Height);
-	UE_LOG(LogTemp, Log, TEXT("Width: %d"), Width);
+	const int Height = GridHeight / TileDim;
+	const int Width = GridWidth / TileDim;
 	
 	//Make sure the GridHeight and GridWith also get adjusted back so the resulting spawned grid is not wrong.
 	GridHeight = Height * TileDim;
 	GridWidth = Width * TileDim;
 	
-	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridHeight);
-	UE_LOG(LogTemp, Log, TEXT("GridHeight: %d"), GridWidth);
-	
-	auto Wfc = WFCAlgorithm(tiles, Width, Height, TileDim);
+	auto Wfc = WFCAlgorithm(Tiles, Width, Height, TileDim);
 	UE_LOG(LogTemp, Log, TEXT("Solving WFC algo"));
 	auto Pixels = Wfc.Solve();
 	
@@ -114,6 +50,8 @@ void ACityGenerator::BeginPlay()
 	// 	}
 	// 	UE_LOG(LogTemp, Log, TEXT("%s"), *RowString);
 	// }
+	
+	const std::vector<GridGroup> Groups = CreateGridGroups(Pixels);
 	
 	SpawnMeshes(Pixels);
 }
@@ -193,7 +131,6 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 		AddIfNotDuplicate(FinalTiles, Tile.GetCWRotatedTile(1));
 		AddIfNotDuplicate(FinalTiles, Tile.GetCWRotatedTile(2));
 		AddIfNotDuplicate(FinalTiles, Tile.GetCWRotatedTile(3));
-		// FinalTiles.emplace_back(TilePixels, TilesetData->TileDimensions);
 		
 	}
 	
@@ -202,9 +139,140 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 }
 
 
+void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int SizeX, const int SizeY, const int FlattenedIndex) const
+{
+	//If both are divisible by 2, subdivide the groups into 2x2 houses
+	if ( (SizeY & 1) == 0 && (SizeX & 1) == 0)
+	{
+		//This looks like a nested loop but in all cases either SizeY or SizeX should be 2
+		for (int OffsetY = 0; OffsetY < SizeY; OffsetY +=2)
+		{
+			for (int OffsetX = 0; OffsetX < SizeX; OffsetX +=2)
+			{
+				int StartIndex = FlattenedIndex + OffsetY * GridWidth + OffsetX;
+				Groups.emplace_back(StartIndex, 2, 2, EPixelValues::House);
+				HasGroup.Emplace(StartIndex, true);
+				HasGroup.Emplace(StartIndex + 1, true);
+				HasGroup.Emplace(StartIndex + GridWidth, true);
+				HasGroup.Emplace(StartIndex + GridWidth + 1, true);
+			}
+		}
+	} else if ((SizeX == 3 && SizeY == 2) || (SizeY == 3 && SizeX == 2)) {
+		//3x2 houses.
+		Groups.emplace_back(ENABLE_TRAILS_START_END_INDEX_OPTIMIZATION, (SizeX == 3 ? 3 : 2), (SizeY == 3 ? 3 : 2), EPixelValues::House);
+		for (int OffsetY = 0; OffsetY < SizeY; OffsetY++)
+		{
+			for (int OffsetX = 0; OffsetX < SizeX; OffsetX++)
+			{
+				HasGroup.Emplace(FlattenedIndex + OffsetY * GridWidth + OffsetX, true);
+			}
+		}
+	} else {
+		//Shouldn't be able to get here
+		UE_LOG(LogTemp, Warning, TEXT("Flattened index of type House has illegal group size: %d"), FlattenedIndex);
+	}
+}
+void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int SizeX, const int SizeY, const int FlattenedIndex, const std::vector<EPixelValues>& Pixels) const
+{
+	//Intersection, make a 2x2 group
+	//Technically there could be a 2x2 road after an intersection as well, but I dont think its in our current tileset.
+	if (SizeY > 2 && SizeX > 2)
+	{
+		Groups.emplace_back(FlattenedIndex, 2, 2, EPixelValues::Road);
+		HasGroup.Emplace(FlattenedIndex, true);
+		HasGroup.Emplace(FlattenedIndex + 1, true);
+		HasGroup.Emplace(FlattenedIndex + GridWidth, true);
+		HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
+	} else if ((SizeY == 2) || (SizeX == 2))
+	{
+		//In the case that Size X is 2, it is a road along the X direction, therefore we should check for intersections
+		//in the X direction.
+		int NeighbourOffset = (SizeX == 2) ? 1 : GridWidth;
+		int StartIndexOffset = (SizeX == 2) ? GridWidth : 1;
+		int LoopCount = (SizeX == 2) ? SizeY : SizeX;
+		
+		for (int i = 0; i < LoopCount; i++)
+		{
+			//Check if its not an intersection tile
+			const int StartIndex = FlattenedIndex + StartIndexOffset * i;
+			const int AboveNeighbourIndex = StartIndex - NeighbourOffset;
+			const int BelowNeighbourIndex = StartIndex + NeighbourOffset * 2;
+			
+			if ((AboveNeighbourIndex >= 0 && Pixels[AboveNeighbourIndex] == EPixelValues::Road) ||
+				(BelowNeighbourIndex < Pixels.size() && Pixels[BelowNeighbourIndex] == EPixelValues::Road))
+			{
+				break;
+			}
+			//Group size in X and Y are 1 or 2 depending on whether we are iterating over Y or X
+			Groups.emplace_back(StartIndex, (SizeX == 2 ? 2 : 1), (SizeY == 2 ? 2 : 1), EPixelValues::Road);
+			HasGroup.Emplace(StartIndex, true);
+			HasGroup.Emplace(StartIndex + NeighbourOffset, true);
+		}
+	} else
+	{
+		//Shouldn't be able to get here
+		UE_LOG(LogTemp, Warning, TEXT("Flattened index of type Road has illegal group size: %d"), FlattenedIndex);
+	}
+}
+
+
+std::vector<ACityGenerator::GridGroup> ACityGenerator::CreateGridGroups(const std::vector<EPixelValues>& Pixels) const
+{
+	std::vector<GridGroup> Groups;
+	//Since most groups are either 2x1 or 2x2, we reserve accounting for that.
+	Groups.reserve((GridWidth / 2) * (GridHeight / 2));
+	TMap<int, bool> HasGroup;
+	
+	for (int y = 0; y < GridHeight; y++)
+	{
+		for (int x = 0; x < GridWidth; x++)
+		{
+			const int FlattenedIndex = y * GridWidth + x;
+			//Check if Index is already ocntained in a group
+			if (HasGroup.Contains(FlattenedIndex))
+			{
+				continue;
+			}
+			
+			const EPixelValues& GroupType = Pixels[FlattenedIndex];
+			
+			if (GroupType == EPixelValues::Grass || GroupType == EPixelValues::Invalid)
+			{
+				//TODO!: Add bigger size groupings to grass as well to allow for trees and stuff
+				Groups.emplace_back(FlattenedIndex, 1, 1, GroupType);
+				break;
+			}
+			
+			int SizeX = 1;
+			int SizeY = 1;
+			while (x + SizeX < GridWidth && Pixels[FlattenedIndex + SizeX] == GroupType)
+			{
+				SizeX++;
+			}
+			while (y + SizeY < GridHeight && Pixels[FlattenedIndex + GridWidth * SizeY] == GroupType)
+			{
+				SizeY++;
+			}
+			
+			if (GroupType == EPixelValues::House)
+			{
+				CreateHouseGroups(Groups, HasGroup, SizeX, SizeY, FlattenedIndex);
+			} else if (GroupType == EPixelValues::Road)
+			{
+				CreateRoadGroups(Groups, HasGroup, SizeX, SizeY, FlattenedIndex, Pixels);
+			}
+			
+			
+		}
+	}
+	
+	return Groups;
+}
+
+
 void ACityGenerator::SpawnMeshes(const std::vector<EPixelValues>& Pixels)
 {
-	FVector Origin = GetActorLocation();
+	const FVector Origin = GetActorLocation();
 	
 	for (int y = 0; y < GridHeight; ++y)
 	{
@@ -232,7 +300,7 @@ void ACityGenerator::SpawnMeshes(const std::vector<EPixelValues>& Pixels)
 				}
 				break;
 			default:
-				//Invalid mesh...
+				//Invalid mesh
 				break;
 			}
 			

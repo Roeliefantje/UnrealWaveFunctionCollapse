@@ -11,7 +11,7 @@
  * 
  */
 
-//While this is an Enum to be used by the WFC only, in order to expose it to blueprints, it needs to be outside of the class.
+//While this is an Enum to be used by and with the WFC only, in order to expose it to blueprints, it needs to be outside of the class.
 UENUM(BlueprintType)
 enum class EPixelValues: uint8
 {
@@ -23,10 +23,7 @@ enum class EPixelValues: uint8
 
 class WAVEFUNCCOLLAPSE_API WFCAlgorithm
 {
-private:
-	
 public:
-
 	struct FTile
 	{
 		//A possible collapsed state of a tile (consisting of pixels) in the grid.
@@ -37,6 +34,11 @@ public:
 		
 		FTile GetCWRotatedTile(int Rotations) const;
 	};
+	
+	WFCAlgorithm(const std::vector<FTile> &possible_tiles, int width, int height, int TileDimensions);
+	std::vector<EPixelValues> Solve();
+	bool Step();
+	~WFCAlgorithm();
 private:
 	struct FGridTile
 	{
@@ -92,8 +94,8 @@ private:
 	
 	static void LogNeighbourBitmasks(FTileNeighbours NBInfo);
 public:
-	WFCAlgorithm(const std::vector<FTile> &possible_tiles, int width, int height, int TileDimensions);
-	std::vector<EPixelValues> Solve();
-	bool Step();
-	~WFCAlgorithm();
+	// WFCAlgorithm(const std::vector<FTile> &possible_tiles, int width, int height, int TileDimensions);
+	// std::vector<EPixelValues> Solve();
+	// bool Step();
+	// ~WFCAlgorithm();
 };
