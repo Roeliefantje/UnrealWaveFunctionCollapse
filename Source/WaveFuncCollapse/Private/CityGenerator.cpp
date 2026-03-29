@@ -8,6 +8,7 @@
 #include "ParticleEmitterInstances.h"
 #include "WFCAlgorithm.h"
 #include "Engine/StaticMeshActor.h"
+#include "Serialization/AsyncPackageLoader.h"
 
 // Sets default values
 ACityGenerator::ACityGenerator()
@@ -110,7 +111,6 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 										RawImageData[PixelCoord + 1],
 										RawImageData[PixelCoord],
 										RawImageData[PixelCoord + 3]);
-				//TODO!: We should have a func that gets the closest color just in case.
 				if (TilesetData->ColorToCellType.Contains(PixelColor))
 				{
 					TilePixels.push_back(TilesetData->ColorToCellType[PixelColor]);
@@ -149,14 +149,16 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 			for (int OffsetX = 0; OffsetX < SizeX; OffsetX +=2)
 			{
 				int StartIndex = FlattenedIndex + OffsetY * GridWidth + OffsetX;
-				Groups.emplace_back(StartX + OffsetX, StartY + OffsetY, 2, 2, EPixelValues::House);
+				//We want to force a rotation on a 2x2 house if the size of Y > 2, as this means the houses are along a road on the y-axis.
+				Groups.emplace_back(StartX + OffsetX, StartY + OffsetY, 2, 2, EPixelValues::House, SizeX > 2);
 				HasGroup.Emplace(StartIndex, true);
 				HasGroup.Emplace(StartIndex + 1, true);
 				HasGroup.Emplace(StartIndex + GridWidth, true);
 				HasGroup.Emplace(StartIndex + GridWidth + 1, true);
 			}
 		}
-	} else if ((SizeX == 3 && SizeY == 2) || (SizeY == 3 && SizeX == 2)) {
+	} else if ((SizeX == 3 && SizeY == 2) || (SizeY == 3 && SizeX == 2))
+	{
 		//3x2 houses.
 		Groups.emplace_back(StartX, StartY, (SizeX == 3 ? 3 : 2), (SizeY == 3 ? 3 : 2), EPixelValues::House);
 		for (int OffsetY = 0; OffsetY < SizeY; OffsetY++)
@@ -166,6 +168,15 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 				HasGroup.Emplace(FlattenedIndex + OffsetY * GridWidth + OffsetX, true);
 			}
 		}
+	} else if ((SizeY == 2) || (SizeX == 2)) {
+		//In this case there is an uneven amount of house spaces, so we want to add a 2x1 house.
+		int GroupSizeX = SizeX == 2 ? 2 : 1;
+		int GroupSizeY = SizeY == 2 ? 2 : 1;
+		Groups.emplace_back(StartX, StartY, GroupSizeX, GroupSizeY, EPixelValues::House);
+		HasGroup.Emplace(FlattenedIndex, true);
+		//Depending on the rotation of the group we add either the y value or x value, since they are 2 and 1,
+		//we can just subtract 1 and use that.
+		HasGroup.Emplace(FlattenedIndex + ((GroupSizeY - 1) * GridWidth) + (GroupSizeX - 1), true);
 	} else {
 		//Shouldn't be able to get here
 		UE_LOG(LogTemp, Warning, TEXT("Flattened index of type House has illegal group size: %d"), FlattenedIndex);
@@ -328,6 +339,11 @@ UStaticMesh* ACityGenerator::GetSpawnMesh(EPixelValues PixelType, int SizeX, int
 			if (MeshsetData->House3x2Meshes.Num() > 0) {
 				return MeshsetData->House3x2Meshes[0];
 			}
+		} else if (SizeX * SizeY == 2)
+		{
+			if (MeshsetData->House3x2Meshes.Num() > 0) {
+				return MeshsetData->House2x1Meshes[0];
+			}
 		} else
 		{
 			if (MeshsetData->House1x1Meshes.Num() > 0) {
@@ -356,14 +372,19 @@ void ACityGenerator::SpawnMeshes(const std::vector<GridGroup>& Groups)
 	
 	for (const GridGroup& Group : Groups)
 	{
-		const FVector SpawnLocation = Origin + FVector(Group.StartX * GridSpacing, Group.StartY * GridSpacing, 0);
+		FVector SpawnLocation = Origin + FVector(Group.StartX * GridSpacing, Group.StartY * GridSpacing, 0);
 		UStaticMesh* SpawnMesh = GetSpawnMesh(Group.GroupType, Group.SizeX, Group.SizeY);
 		
 		// Determine rotation based on size comparison
 		FRotator SpawnRotation = FRotator::ZeroRotator;
-		if (Group.SizeY > Group.SizeX)
+		if (Group.SizeY > Group.SizeX || Group.ShouldRotate)
 		{
 			SpawnRotation = FRotator(0.f, 90.f, 0.f); // Rotate 90 degrees around yaw
+			
+			if (Group.SizeX > 1)
+			{
+				SpawnLocation = SpawnLocation + FVector(GridSpacing * (Group.SizeX - 1), 0, 0);
+			}
 		}
 		
 		FActorSpawnParameters SpawnParams;

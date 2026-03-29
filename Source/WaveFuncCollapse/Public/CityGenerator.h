@@ -41,6 +41,8 @@ private:
 		int SizeX;
 		int SizeY;
 		EPixelValues GroupType;
+		//False by default but used to indicate that 2x2 tiles should be rotated.
+		bool ShouldRotate = false;
 	};
 	
 	std::vector<WFCAlgorithm::FTile> FTilesFromTileSetData() const;

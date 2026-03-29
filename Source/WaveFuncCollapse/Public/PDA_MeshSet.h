@@ -18,6 +18,9 @@ public:
 	TArray<UStaticMesh*> House1x1Meshes;
 	
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Houses")
+	TArray<UStaticMesh*> House2x1Meshes;
+	
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Houses")
 	TArray<UStaticMesh*> House2x2Meshes;
 	
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category="Houses")
