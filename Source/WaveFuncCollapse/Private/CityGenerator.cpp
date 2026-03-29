@@ -35,25 +35,23 @@ void ACityGenerator::BeginPlay()
 	UE_LOG(LogTemp, Log, TEXT("Solving WFC algo"));
 	auto Pixels = Wfc.Solve();
 	
-	// int ResultHeight = Height * TileDim;
-	// int ResultWidth = Width * TileDim;
-	//
-	// for (int32 y = 0; y < ResultHeight; y++)
-	// {
-	// 	FString RowString;
-	// 	for (int32 x = 0; x < ResultWidth; x++)
-	// 	{
-	// 		int32 Index = y * ResultWidth + x;
-	// 		// UE_LOG(LogTemp, Log, TEXT("%d "), Index);
-	// 		// Cast enum class to int32 for printing
-	// 		RowString += FString::Printf(TEXT("%d "), static_cast<int32>(Pixels[Index]));
-	// 	}
-	// 	UE_LOG(LogTemp, Log, TEXT("%s"), *RowString);
-	// }
+	
+	for (int32 y = 0; y < GridHeight; y++)
+	{
+		FString RowString;
+		for (int32 x = 0; x < GridWidth; x++)
+		{
+			int32 Index = y * GridWidth + x;
+			// UE_LOG(LogTemp, Log, TEXT("%d "), Index);
+			// Cast enum class to int32 for printing
+			RowString += FString::Printf(TEXT("%d "), static_cast<int32>(Pixels[Index]));
+		}
+		UE_LOG(LogTemp, Log, TEXT("%s"), *RowString);
+	}
 	
 	const std::vector<GridGroup> Groups = CreateGridGroups(Pixels);
-	
-	SpawnMeshes(Pixels);
+	UE_LOG(LogTemp, Log, TEXT("Groups created: %llu"), Groups.size());
+	SpawnMeshes(Groups);
 }
 
 void AddIfNotDuplicate(std::vector<WFCAlgorithm::FTile>& Vec, WFCAlgorithm::FTile Obj)
@@ -139,8 +137,9 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 }
 
 
-void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int SizeX, const int SizeY, const int FlattenedIndex) const
+void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY) const
 {
+	const int FlattenedIndex = StartY * GridWidth + StartX;
 	//If both are divisible by 2, subdivide the groups into 2x2 houses
 	if ( (SizeY & 1) == 0 && (SizeX & 1) == 0)
 	{
@@ -150,7 +149,7 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 			for (int OffsetX = 0; OffsetX < SizeX; OffsetX +=2)
 			{
 				int StartIndex = FlattenedIndex + OffsetY * GridWidth + OffsetX;
-				Groups.emplace_back(StartIndex, 2, 2, EPixelValues::House);
+				Groups.emplace_back(StartX + OffsetX, StartY + OffsetY, 2, 2, EPixelValues::House);
 				HasGroup.Emplace(StartIndex, true);
 				HasGroup.Emplace(StartIndex + 1, true);
 				HasGroup.Emplace(StartIndex + GridWidth, true);
@@ -159,7 +158,7 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 		}
 	} else if ((SizeX == 3 && SizeY == 2) || (SizeY == 3 && SizeX == 2)) {
 		//3x2 houses.
-		Groups.emplace_back(ENABLE_TRAILS_START_END_INDEX_OPTIMIZATION, (SizeX == 3 ? 3 : 2), (SizeY == 3 ? 3 : 2), EPixelValues::House);
+		Groups.emplace_back(StartX, StartY, (SizeX == 3 ? 3 : 2), (SizeY == 3 ? 3 : 2), EPixelValues::House);
 		for (int OffsetY = 0; OffsetY < SizeY; OffsetY++)
 		{
 			for (int OffsetX = 0; OffsetX < SizeX; OffsetX++)
@@ -170,15 +169,18 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 	} else {
 		//Shouldn't be able to get here
 		UE_LOG(LogTemp, Warning, TEXT("Flattened index of type House has illegal group size: %d"), FlattenedIndex);
+		Groups.emplace_back(StartX, StartY, 1, 1, EPixelValues::House);
+		HasGroup.Emplace(FlattenedIndex, true);
 	}
 }
-void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int SizeX, const int SizeY, const int FlattenedIndex, const std::vector<EPixelValues>& Pixels) const
+void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY, const std::vector<EPixelValues>& Pixels) const
 {
+	const int FlattenedIndex = StartY * GridWidth + StartX;
 	//Intersection, make a 2x2 group
 	//Technically there could be a 2x2 road after an intersection as well, but I dont think its in our current tileset.
-	if (SizeY > 2 && SizeX > 2)
+	if ((SizeY > 2 && SizeX > 2) || (SizeY == 2 && SizeX == 2))
 	{
-		Groups.emplace_back(FlattenedIndex, 2, 2, EPixelValues::Road);
+		Groups.emplace_back(StartX, StartY, 2, 2, EPixelValues::Road);
 		HasGroup.Emplace(FlattenedIndex, true);
 		HasGroup.Emplace(FlattenedIndex + 1, true);
 		HasGroup.Emplace(FlattenedIndex + GridWidth, true);
@@ -195,16 +197,34 @@ void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Gr
 		{
 			//Check if its not an intersection tile
 			const int StartIndex = FlattenedIndex + StartIndexOffset * i;
+			UE_LOG(LogTemp, Warning, TEXT("Iterating over road tiles: %d, %d"), StartIndex, StartIndex + NeighbourOffset);
 			const int AboveNeighbourIndex = StartIndex - NeighbourOffset;
 			const int BelowNeighbourIndex = StartIndex + NeighbourOffset * 2;
 			
 			if ((AboveNeighbourIndex >= 0 && Pixels[AboveNeighbourIndex] == EPixelValues::Road) ||
 				(BelowNeighbourIndex < Pixels.size() && Pixels[BelowNeighbourIndex] == EPixelValues::Road))
 			{
+				if (i == 0)
+				{
+					//In the cases where we start the loop and we instantly see that there is a road as well the other way, this
+					//means we are either in a turn or in an intersection, either way, we have to spawn a 2x2 tile.
+					Groups.emplace_back(StartX, StartY, 2, 2, EPixelValues::Road);
+					HasGroup.Emplace(FlattenedIndex, true);
+					HasGroup.Emplace(FlattenedIndex + 1, true);
+					HasGroup.Emplace(FlattenedIndex + GridWidth, true);
+					HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
+				}
+				
 				break;
 			}
 			//Group size in X and Y are 1 or 2 depending on whether we are iterating over Y or X
-			Groups.emplace_back(StartIndex, (SizeX == 2 ? 2 : 1), (SizeY == 2 ? 2 : 1), EPixelValues::Road);
+			//It can happen that a 2x2 tile is behind an intersection, in those cases,
+			//to prevent an increment of both x and y we just use a ternary with sizeX.
+			Groups.emplace_back((SizeX == 2 ? StartX : StartX + i),
+							(SizeX == 2 ? StartY + i : StartY),
+							(SizeX == 2 ? 2 : 1),
+							(SizeX == 2 ? 1 : 2),
+							EPixelValues::Road);
 			HasGroup.Emplace(StartIndex, true);
 			HasGroup.Emplace(StartIndex + NeighbourOffset, true);
 		}
@@ -212,6 +232,7 @@ void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Gr
 	{
 		//Shouldn't be able to get here
 		UE_LOG(LogTemp, Warning, TEXT("Flattened index of type Road has illegal group size: %d"), FlattenedIndex);
+		Groups.emplace_back(StartX, StartY, 1, 1, EPixelValues::Road);
 	}
 }
 
@@ -231,16 +252,17 @@ std::vector<ACityGenerator::GridGroup> ACityGenerator::CreateGridGroups(const st
 			//Check if Index is already ocntained in a group
 			if (HasGroup.Contains(FlattenedIndex))
 			{
+				// UE_LOG(LogTemp, Warning, TEXT("Flattened index already encountered!"));
 				continue;
 			}
 			
 			const EPixelValues& GroupType = Pixels[FlattenedIndex];
 			
-			if (GroupType == EPixelValues::Grass || GroupType == EPixelValues::Invalid)
+			if (GroupType == EPixelValues::Grass || GroupType == EPixelValues::Pavement || GroupType == EPixelValues::Invalid)
 			{
 				//TODO!: Add bigger size groupings to grass as well to allow for trees and stuff
-				Groups.emplace_back(FlattenedIndex, 1, 1, GroupType);
-				break;
+				Groups.emplace_back(x, y, 1, 1, GroupType);
+				continue;
 			}
 			
 			int SizeX = 1;
@@ -256,10 +278,10 @@ std::vector<ACityGenerator::GridGroup> ACityGenerator::CreateGridGroups(const st
 			
 			if (GroupType == EPixelValues::House)
 			{
-				CreateHouseGroups(Groups, HasGroup, SizeX, SizeY, FlattenedIndex);
+				CreateHouseGroups(Groups, HasGroup, x, y, SizeX, SizeY);
 			} else if (GroupType == EPixelValues::Road)
 			{
-				CreateRoadGroups(Groups, HasGroup, SizeX, SizeY, FlattenedIndex, Pixels);
+				CreateRoadGroups(Groups, HasGroup, x, y, SizeX, SizeY, Pixels);
 			}
 			
 			
@@ -269,66 +291,99 @@ std::vector<ACityGenerator::GridGroup> ACityGenerator::CreateGridGroups(const st
 	return Groups;
 }
 
+UStaticMesh* ACityGenerator::GetSpawnMesh(EPixelValues PixelType, int SizeX, int SizeY) const
+{
+	switch (PixelType)
+	{
+	case EPixelValues::Grass:
+		if (MeshsetData->Grass1x1Meshes.Num() > 0) {
+			return MeshsetData->Grass1x1Meshes[0];
+		}
+		break;
+	case EPixelValues::Road:
+		//TODO!: Improve logic
+		if (SizeX * SizeY == 2)
+		{
+			if (MeshsetData->Road2x1Meshes.Num() > 0)
+			{
+				return MeshsetData->Road2x1Meshes[0];
+			}
+		} else
+		{
+			if (MeshsetData->Road2x2Meshes.Num() > 0)
+			{
+				return MeshsetData->Road2x2Meshes[0];
+			}
+		}
+		break;
+	case EPixelValues::House:
+		//TODO!: Improve logic :)
+		if (SizeX * SizeY == 4)
+		{
+			if (MeshsetData->House2x2Meshes.Num() > 0) {
+				return MeshsetData->House2x2Meshes[0];
+			}
+		} else if (SizeX * SizeY == 6)
+		{
+			if (MeshsetData->House3x2Meshes.Num() > 0) {
+				return MeshsetData->House3x2Meshes[0];
+			}
+		} else
+		{
+			if (MeshsetData->House1x1Meshes.Num() > 0) {
+				return MeshsetData->House1x1Meshes[0];
+			}
+		}
+		
+		break;
+	case EPixelValues::Pavement:
+		if (MeshsetData->Pavement1x1Meshes.Num() > 0)
+		{
+			return MeshsetData->Pavement1x1Meshes[0];
+		}
+		break;
+	default:
+		//Invalid mesh
+		break;
+	}
+	
+	return nullptr;
+}
 
-void ACityGenerator::SpawnMeshes(const std::vector<EPixelValues>& Pixels)
+void ACityGenerator::SpawnMeshes(const std::vector<GridGroup>& Groups)
 {
 	const FVector Origin = GetActorLocation();
 	
-	for (int y = 0; y < GridHeight; ++y)
+	for (const GridGroup& Group : Groups)
 	{
-		for (int x = 0; x < GridWidth; ++x)
+		const FVector SpawnLocation = Origin + FVector(Group.StartX * GridSpacing, Group.StartY * GridSpacing, 0);
+		UStaticMesh* SpawnMesh = GetSpawnMesh(Group.GroupType, Group.SizeX, Group.SizeY);
+		
+		// Determine rotation based on size comparison
+		FRotator SpawnRotation = FRotator::ZeroRotator;
+		if (Group.SizeY > Group.SizeX)
 		{
-			const FVector SpawnLocation = Origin + FVector(x * GridSpacing, y * GridSpacing, 0);
+			SpawnRotation = FRotator(0.f, 90.f, 0.f); // Rotate 90 degrees around yaw
+		}
+		
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			
-			UStaticMesh* SpawnMesh = nullptr;
+		AStaticMeshActor* SpawnedActor = GetWorld()->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), 
+			SpawnLocation,
+			SpawnRotation,
+			SpawnParams
+		);
 			
-			switch (const EPixelValues& Pixel = Pixels[y * GridWidth + x])
-			{
-			case EPixelValues::Grass:
-				if (MeshsetData->GrassMeshes.Num() > 0) {
-					SpawnMesh = MeshsetData->GrassMeshes[0];
-				}
-				break;
-			case EPixelValues::Road:
-				if (MeshsetData->RoadMeshes.Num() > 0) {
-					SpawnMesh = MeshsetData->RoadMeshes[0];
-				}
-				break;
-			case EPixelValues::House:
-				if (MeshsetData->HouseMeshes.Num() > 0) {
-					SpawnMesh = MeshsetData->HouseMeshes[0];
-				}
-				break;
-			default:
-				//Invalid mesh
-				break;
-			}
-			
-			if (!SpawnMesh)
-			{
-				continue;
-			}
-			
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = this;
-			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			
-			AStaticMeshActor* SpawnedActor = GetWorld()->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), 
-				SpawnLocation,
-				FRotator::ZeroRotator,
-				SpawnParams
-			);
-			
-			if (SpawnedActor && SpawnedActor->GetStaticMeshComponent())
-			{
-				SpawnedActor->GetStaticMeshComponent()->SetStaticMesh(SpawnMesh);
-				SpawnedActor->SetActorLabel(FString::Printf(TEXT("GridMesh_%d_%d"), x, y));
-				// Optional: Attach spawned actor for hierarchy organization
-				// SpawnedActor->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-			} else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Failed to spawn mesh actor at grid [%d,%d]."), x, y);
-			}
+		if (SpawnedActor && SpawnedActor->GetStaticMeshComponent())
+		{
+			SpawnedActor->GetStaticMeshComponent()->SetStaticMesh(SpawnMesh);
+			SpawnedActor->SetActorLabel(FString::Printf(TEXT("GridMesh_%d_%d"), Group.StartX, Group.StartY));
+			// SpawnedActor->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		} else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Failed to spawn mesh actor at grid [%d,%d]."), Group.StartX, Group.StartY);
 		}
 	}
 }

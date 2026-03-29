@@ -32,14 +32,12 @@ public:
 	int GridSpacing = 100.0f;
 protected:
 	// Called when the game starts or when spawned
-	
-
-	
 	virtual void BeginPlay() override;
 private:
 	struct GridGroup
 	{
-		int StartIndex;
+		int StartX;
+		int StartY;
 		int SizeX;
 		int SizeY;
 		EPixelValues GroupType;
@@ -47,10 +45,11 @@ private:
 	
 	std::vector<WFCAlgorithm::FTile> FTilesFromTileSetData() const;
 	
-	void SpawnMeshes(const std::vector<EPixelValues>& Pixels);
+	UStaticMesh* GetSpawnMesh(EPixelValues PixelType, int SizeX, int SizeY) const;
+	void SpawnMeshes(const std::vector<GridGroup>& Groups);
 	std::vector<GridGroup> CreateGridGroups(const std::vector<EPixelValues>& Pixels) const;
-	void CreateHouseGroups(std::vector<GridGroup>& Groups, TMap<int, bool>& HasGroup, const int SizeX, const int SizeY, const int FlattenedIndex) const;
-	void CreateRoadGroups(std::vector<GridGroup>& Groups, TMap<int, bool>& HasGroup, const int SizeX, const int SizeY, const int FlattenedIndex, const std::vector<EPixelValues>& Pixels) const;
+	void CreateHouseGroups(std::vector<GridGroup>& Groups, TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY) const;
+	void CreateRoadGroups(std::vector<GridGroup>& Groups, TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY, const std::vector<EPixelValues>& Pixels) const;
 	
 public:	
 	// Called every frame

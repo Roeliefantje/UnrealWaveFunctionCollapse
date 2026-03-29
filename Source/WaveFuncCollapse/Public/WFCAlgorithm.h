@@ -18,6 +18,7 @@ enum class EPixelValues: uint8
 	Grass   UMETA(DisplayName = "Grass"),
 	Road    UMETA(DisplayName = "Road"),
 	House   UMETA(DisplayName = "House"),
+	Pavement UMETA(DisplayName = "Pavement"),
 	Invalid UMETA(DisplayName = "Invalid")
 };
 
