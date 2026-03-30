@@ -167,7 +167,6 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 		}
 	}
 	
-	
 	//If both are divisible by 2, subdivide the groups into 2x2 houses
 	if ( (SizeY & 1) == 0 && (SizeX & 1) == 0)
 	{
@@ -180,23 +179,13 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 				//We want to force a rotation on a 2x2 house if the size of Y > 2, as this means the houses are along a road on the y-axis.
 				Groups.emplace_back(StartX + OffsetX, StartY + OffsetY, 2, 2, EPixelValues::House, SizeX > 2);
 				EmplaceInHasGroup(HasGroup, StartIndex, 2, 2, GridWidth);
-				// HasGroup.Emplace(StartIndex, true);
-				// HasGroup.Emplace(StartIndex + 1, true);
-				// HasGroup.Emplace(StartIndex + GridWidth, true);
-				// HasGroup.Emplace(StartIndex + GridWidth + 1, true);
 			}
 		}
 	} else if ((SizeX == 3 && SizeY == 2) || (SizeY == 3 && SizeX == 2))
 	{
 		//3x2 houses.
-		Groups.emplace_back(StartX, StartY, (SizeX == 3 ? 3 : 2), (SizeY == 3 ? 3 : 2), EPixelValues::House);
-		for (int OffsetY = 0; OffsetY < SizeY; OffsetY++)
-		{
-			for (int OffsetX = 0; OffsetX < SizeX; OffsetX++)
-			{
-				HasGroup.Emplace(FlattenedIndex + OffsetY * GridWidth + OffsetX, true);
-			}
-		}
+		Groups.emplace_back(StartX, StartY, SizeX, SizeY, EPixelValues::House);
+		EmplaceInHasGroup(HasGroup, FlattenedIndex, SizeX, SizeY, GridWidth);
 	} else if ((SizeY == 2) || (SizeX == 2)) {
 		//In this case there is an uneven amount of house spaces, so we want to change either side to grass.
 		//To figure out which side of the group we want to turn into grass, we see which side is the closest to the edge.
@@ -209,23 +198,19 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 		if (StartAxis < (Limit / 2))
 		{
 			// Place the two 1x1 groups
+			const int SecondX = bVertical ? StartX : StartX + 1;
+			const int SecondY = bVertical ? StartY + 1 : StartY;
+			
 			Groups.emplace_back(StartX, StartY, 1, 1, EPixelValues::Grass);
+			Groups.emplace_back(SecondX, SecondY, 1, 1, EPixelValues::Grass);
+			
 			HasGroup.Emplace(FlattenedIndex, true);
-
-			if (bVertical)
-			{
-				Groups.emplace_back(StartX, StartY + 1, 1, 1, EPixelValues::Grass);
-				HasGroup.Emplace(FlattenedIndex + GridWidth, true);
-			}
-			else
-			{
-				Groups.emplace_back(StartX + 1, StartY, 1, 1, EPixelValues::Grass);
-				HasGroup.Emplace(FlattenedIndex + 1, true);
-			}
+			EmplaceInHasGroup(HasGroup, FlattenedIndex, bVertical ? 1 : 2, bVertical ? 2 : 1, GridWidth);
 		}
 		else
 		{
-			// Recurse, trimming the long side
+			//We make an even group by trimming the last grouping, this way it will create 2x2 houses, and once it gets
+			//to the the last 2x1 group of house tiles, it will replace them by grass.
 			CreateHouseGroups(Groups,HasGroup,
 				StartX, StartY,
 				bVertical ? SizeX - 1 : SizeX,
@@ -239,6 +224,8 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 		HasGroup.Emplace(FlattenedIndex, true);
 	}
 }
+
+
 void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY, const std::vector<EPixelValues>& Pixels) const
 {
 	const int FlattenedIndex = StartY * GridWidth + StartX;
@@ -248,53 +235,44 @@ void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Gr
 	{
 		Groups.emplace_back(StartX, StartY, 2, 2, EPixelValues::Road);
 		EmplaceInHasGroup(HasGroup, FlattenedIndex, 2, 2, GridWidth);
-		// HasGroup.Emplace(FlattenedIndex, true);
-		// HasGroup.Emplace(FlattenedIndex + 1, true);
-		// HasGroup.Emplace(FlattenedIndex + GridWidth, true);
-		// HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
 	} else if ((SizeY == 2) || (SizeX == 2))
 	{
-		//In the case that Size X is 2, it is a road along the X direction, therefore we should check for intersections
-		//in the X direction.
-		int NeighbourOffset = (SizeX == 2) ? 1 : GridWidth;
-		int StartIndexOffset = (SizeX == 2) ? GridWidth : 1;
-		int LoopCount = (SizeX == 2) ? SizeY : SizeX;
-		
+		const bool bVertical = (SizeY == 2);
+
+		// Directional offsets
+		const int StepOffset      = bVertical ? 1 : GridWidth; 
+		const int SideOffset      = bVertical ? GridWidth : 1;
+		const int LoopCount       = bVertical ? SizeX     : SizeY;
+
 		for (int i = 0; i < LoopCount; i++)
 		{
-			//Check if its not an intersection tile
-			const int StartIndex = FlattenedIndex + StartIndexOffset * i;
-			UE_LOG(LogTemp, Warning, TEXT("Iterating over road tiles: %d, %d"), StartIndex, StartIndex + NeighbourOffset);
-			const int AboveNeighbourIndex = StartIndex - NeighbourOffset;
-			const int BelowNeighbourIndex = StartIndex + NeighbourOffset * 2;
+			const int CurrentIndex = FlattenedIndex + StepOffset * i;
 			
-			if ((AboveNeighbourIndex >= 0 && Pixels[AboveNeighbourIndex] == EPixelValues::Road) ||
-				(BelowNeighbourIndex < Pixels.size() && Pixels[BelowNeighbourIndex] == EPixelValues::Road))
+			// Create the dimensions of the tile based on whether we are moving vertically or horizontally.
+			const int X = bVertical ? StartX + i : StartX;
+			const int Y = bVertical ? StartY : StartY + i;
+			const int TileSizeX  = bVertical ? 1 : 2;
+			const int TileSizeY = bVertical ? 2 : 1;
+			
+			const int SideBefore = CurrentIndex - SideOffset;
+			const int SideAfter = CurrentIndex + SideOffset * 2;
+
+			const bool bHasSideConnection =
+				(SideBefore >= 0 && Pixels[SideBefore] == EPixelValues::Road) ||
+				(SideAfter < Pixels.size() && Pixels[SideAfter] == EPixelValues::Road);
+
+			// If there is a side connection, we are an intersection tile. This means we place a 2x2 tile and
+			// skip the next iteration as this is part of the intersection tile we just created.
+			if (bHasSideConnection)
 			{
-				if (i == 0)
-				{
-					//In the cases where we start the loop and we instantly see that there is a road as well the other way, this
-					//means we are either in a turn or in an intersection, either way, we have to spawn a 2x2 tile.
-					Groups.emplace_back(StartX, StartY, 2, 2, EPixelValues::Road);
-					EmplaceInHasGroup(HasGroup, FlattenedIndex, 2, 2, GridWidth);
-					// HasGroup.Emplace(FlattenedIndex, true);
-					// HasGroup.Emplace(FlattenedIndex + 1, true);
-					// HasGroup.Emplace(FlattenedIndex + GridWidth, true);
-					// HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
-				}
-				
-				break;
+				Groups.emplace_back(X, Y, 2, 2, EPixelValues::Road);
+				EmplaceInHasGroup(HasGroup, CurrentIndex, 2, 2, GridWidth);
+				i++;
+			} else
+			{
+				Groups.emplace_back(X, Y, TileSizeX, TileSizeY, EPixelValues::Road);
+				EmplaceInHasGroup(HasGroup, CurrentIndex, TileSizeX, TileSizeY, GridWidth);
 			}
-			//Group size in X and Y are 1 or 2 depending on whether we are iterating over Y or X
-			//It can happen that a 2x2 tile is behind an intersection, in those cases,
-			//to prevent an increment of both x and y we just use a ternary with sizeX.
-			Groups.emplace_back((SizeX == 2 ? StartX : StartX + i),
-							(SizeX == 2 ? StartY + i : StartY),
-							(SizeX == 2 ? 2 : 1),
-							(SizeX == 2 ? 1 : 2),
-							EPixelValues::Road);
-			HasGroup.Emplace(StartIndex, true);
-			HasGroup.Emplace(StartIndex + NeighbourOffset, true);
 		}
 	} else
 	{
