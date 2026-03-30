@@ -136,10 +136,38 @@ std::vector<WFCAlgorithm::FTile> ACityGenerator::FTilesFromTileSetData() const
 	return FinalTiles;
 }
 
+inline void EmplaceInHasGroup(TMap<int, bool>& HasGroup, int StartIndex, int SizeX, int SizeY, int YStepSize)
+{
+	for (int y = 0; y < SizeY; y++)
+	{
+		for (int x = 0; x < SizeX; x++)
+		{
+			HasGroup.Emplace(StartIndex + y * YStepSize + x, true);	
+		}
+	}
+}
 
-void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& Groups, TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY) const
+
+void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& Groups,
+	TMap<int, bool>& HasGroup, const int StartX, const int StartY, const int SizeX, const int SizeY) const
 {
 	const int FlattenedIndex = StartY * GridWidth + StartX;
+	if ((SizeY < 2 || SizeX < 2))
+	{
+		//The group sizes should always be at least 2, if this is not the case we replace with grass instead.
+		for (int OffsetY = 0; OffsetY < SizeY; OffsetY++)
+		{
+			for (int OffsetX = 0; OffsetX < SizeX; OffsetX++)
+			{
+				int StartIndex = FlattenedIndex + OffsetY * GridWidth + OffsetX;
+				Groups.emplace_back(StartX + OffsetX, StartY + OffsetY, 1, 1, EPixelValues::Grass);
+				HasGroup.Emplace(StartIndex, true);
+			}
+			
+		}
+	}
+	
+	
 	//If both are divisible by 2, subdivide the groups into 2x2 houses
 	if ( (SizeY & 1) == 0 && (SizeX & 1) == 0)
 	{
@@ -151,10 +179,11 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 				int StartIndex = FlattenedIndex + OffsetY * GridWidth + OffsetX;
 				//We want to force a rotation on a 2x2 house if the size of Y > 2, as this means the houses are along a road on the y-axis.
 				Groups.emplace_back(StartX + OffsetX, StartY + OffsetY, 2, 2, EPixelValues::House, SizeX > 2);
-				HasGroup.Emplace(StartIndex, true);
-				HasGroup.Emplace(StartIndex + 1, true);
-				HasGroup.Emplace(StartIndex + GridWidth, true);
-				HasGroup.Emplace(StartIndex + GridWidth + 1, true);
+				EmplaceInHasGroup(HasGroup, StartIndex, 2, 2, GridWidth);
+				// HasGroup.Emplace(StartIndex, true);
+				// HasGroup.Emplace(StartIndex + 1, true);
+				// HasGroup.Emplace(StartIndex + GridWidth, true);
+				// HasGroup.Emplace(StartIndex + GridWidth + 1, true);
 			}
 		}
 	} else if ((SizeX == 3 && SizeY == 2) || (SizeY == 3 && SizeX == 2))
@@ -169,18 +198,44 @@ void ACityGenerator::CreateHouseGroups(std::vector<ACityGenerator::GridGroup>& G
 			}
 		}
 	} else if ((SizeY == 2) || (SizeX == 2)) {
-		//In this case there is an uneven amount of house spaces, so we want to add a 2x1 house.
-		int GroupSizeX = SizeX == 2 ? 2 : 1;
-		int GroupSizeY = SizeY == 2 ? 2 : 1;
-		Groups.emplace_back(StartX, StartY, GroupSizeX, GroupSizeY, EPixelValues::House);
-		HasGroup.Emplace(FlattenedIndex, true);
-		//Depending on the rotation of the group we add either the y value or x value, since they are 2 and 1,
-		//we can just subtract 1 and use that.
-		HasGroup.Emplace(FlattenedIndex + ((GroupSizeY - 1) * GridWidth) + (GroupSizeX - 1), true);
+		//In this case there is an uneven amount of house spaces, so we want to change either side to grass.
+		//To figure out which side of the group we want to turn into grass, we see which side is the closest to the edge.
+		//This only occurs when a tile is not connected, so this should handle the cases of tiles going off the side.
+		const bool bVertical = (SizeY == 2);
+
+		const int Limit     = bVertical ? GridWidth  : GridHeight;
+		const int StartAxis = bVertical ? StartX     : StartY;
+
+		if (StartAxis < (Limit / 2))
+		{
+			// Place the two 1x1 groups
+			Groups.emplace_back(StartX, StartY, 1, 1, EPixelValues::Grass);
+			HasGroup.Emplace(FlattenedIndex, true);
+
+			if (bVertical)
+			{
+				Groups.emplace_back(StartX, StartY + 1, 1, 1, EPixelValues::Grass);
+				HasGroup.Emplace(FlattenedIndex + GridWidth, true);
+			}
+			else
+			{
+				Groups.emplace_back(StartX + 1, StartY, 1, 1, EPixelValues::Grass);
+				HasGroup.Emplace(FlattenedIndex + 1, true);
+			}
+		}
+		else
+		{
+			// Recurse, trimming the long side
+			CreateHouseGroups(Groups,HasGroup,
+				StartX, StartY,
+				bVertical ? SizeX - 1 : SizeX,
+				bVertical ? SizeY     : SizeY - 1
+			);
+		}
 	} else {
 		//Shouldn't be able to get here
 		UE_LOG(LogTemp, Warning, TEXT("Flattened index of type House has illegal group size: %d"), FlattenedIndex);
-		Groups.emplace_back(StartX, StartY, 1, 1, EPixelValues::House);
+		Groups.emplace_back(StartX, StartY, 1, 1, EPixelValues::Grass);
 		HasGroup.Emplace(FlattenedIndex, true);
 	}
 }
@@ -192,10 +247,11 @@ void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Gr
 	if ((SizeY > 2 && SizeX > 2) || (SizeY == 2 && SizeX == 2))
 	{
 		Groups.emplace_back(StartX, StartY, 2, 2, EPixelValues::Road);
-		HasGroup.Emplace(FlattenedIndex, true);
-		HasGroup.Emplace(FlattenedIndex + 1, true);
-		HasGroup.Emplace(FlattenedIndex + GridWidth, true);
-		HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
+		EmplaceInHasGroup(HasGroup, FlattenedIndex, 2, 2, GridWidth);
+		// HasGroup.Emplace(FlattenedIndex, true);
+		// HasGroup.Emplace(FlattenedIndex + 1, true);
+		// HasGroup.Emplace(FlattenedIndex + GridWidth, true);
+		// HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
 	} else if ((SizeY == 2) || (SizeX == 2))
 	{
 		//In the case that Size X is 2, it is a road along the X direction, therefore we should check for intersections
@@ -220,10 +276,11 @@ void ACityGenerator::CreateRoadGroups(std::vector<ACityGenerator::GridGroup>& Gr
 					//In the cases where we start the loop and we instantly see that there is a road as well the other way, this
 					//means we are either in a turn or in an intersection, either way, we have to spawn a 2x2 tile.
 					Groups.emplace_back(StartX, StartY, 2, 2, EPixelValues::Road);
-					HasGroup.Emplace(FlattenedIndex, true);
-					HasGroup.Emplace(FlattenedIndex + 1, true);
-					HasGroup.Emplace(FlattenedIndex + GridWidth, true);
-					HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
+					EmplaceInHasGroup(HasGroup, FlattenedIndex, 2, 2, GridWidth);
+					// HasGroup.Emplace(FlattenedIndex, true);
+					// HasGroup.Emplace(FlattenedIndex + 1, true);
+					// HasGroup.Emplace(FlattenedIndex + GridWidth, true);
+					// HasGroup.Emplace(FlattenedIndex + GridWidth + 1, true);
 				}
 				
 				break;
